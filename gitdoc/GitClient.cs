@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace GitDoc
@@ -10,8 +12,11 @@ namespace GitDoc
 
         public GitClient()
         {
+            var version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+
             _httpClient = new HttpClient();
             _httpClient.BaseAddress = new Uri("https://api.github.com");
+            _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("GitDoc", version));
         }
 
         public async Task<string> Markdown(string text)

@@ -13,7 +13,7 @@ namespace GitDoc
     {
         private static GitDocArgs _options;
 
-        private static IDictionary<string, string> _tokenReplacements = new Dictionary<string, string>(); 
+        private static readonly IDictionary<string, string> _tokenReplacements = new Dictionary<string, string>(); 
 
         static void Main(string[] args)
         {
@@ -92,15 +92,15 @@ namespace GitDoc
                     contents = template.Replace("{body}", contents);                    
 
                     File.WriteAllText(outputName, contents);
+
+                    Console.WriteLine("Processed file: {0}", file);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception("Couldn't process file: " + file, ex);
+                    throw new Exception("Couldn't process file: " + file, ex);                    
                 }
             }
         }
-
-
     }
 
     internal class GitDocArgs
