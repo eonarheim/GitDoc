@@ -79,6 +79,29 @@ namespace GitDoc
                 {
                     var rawText = File.ReadAllText(file);
 
+                    // Relative links
+                    MatchCollection links = _anchorInline.Matches(rawText);
+
+                    foreach (Match link in links)
+                    {
+                        var group = link.Groups[3]; // href
+                        var href = group.Value;
+                        Uri relativeUri;
+
+                        // Try and create a relative URI (so absolute will be ignored)
+                        if (Uri.TryCreate(href, UriKind.Relative, out relativeUri))
+                        {
+                            // See if the HREF is pointing to a Markdown file
+                            if (Path.GetExtension(relativeUri.ToString()) == ".md")
+                            {
+                                // remove existing value
+                                rawText = rawText.Remove(group.Index, group.Length);
+                                // insert new value, change extension to HTML
+                                rawText = rawText.Insert(group.Index, Path.GetFileNameWithoutExtension(relativeUri.ToString()) + ".html");
+                            }
+                        }
+                    }
+
                     // Token replacement
                     foreach (var tr in _tokenReplacements)
                     {
@@ -101,6 +124,153 @@ namespace GitDoc
                 }
             }
         }
+
+
+        #region "Borrowed" From MarkdownSharp
+
+        #region Copyright and license
+
+        /*
+
+Copyright (c) 2009 - 2010 Jeff Atwood
+
+http://www.opensource.org/licenses/mit-license.php
+  
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Copyright (c) 2003-2004 John Gruber
+<http://daringfireball.net/>   
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+* Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
+
+* Neither the name "Markdown" nor the names of its contributors may
+  be used to endorse or promote products derived from this software
+  without specific prior written permission.
+
+This software is provided by the copyright holders and contributors "as
+is" and any express or implied warranties, including, but not limited
+to, the implied warranties of merchantability and fitness for a
+particular purpose are disclaimed. In no event shall the copyright owner
+or contributors be liable for any direct, indirect, incidental, special,
+exemplary, or consequential damages (including, but not limited to,
+procurement of substitute goods or services; loss of use, data, or
+profits; or business interruption) however caused and on any theory of
+liability, whether in contract, strict liability, or tort (including
+negligence or otherwise) arising in any way out of the use of this
+software, even if advised of the possibility of such damage.
+*/
+
+        #endregion
+
+        /// <summary>
+        /// maximum nested depth of [] and () supported by the transform; implementation detail
+        /// </summary>
+        private const int _nestDepth = 6;
+
+        private static Regex _anchorInline = new Regex(string.Format(@"
+                (                           # wrap whole match in $1
+                    \[
+                        ({0})               # link text = $2
+                    \]
+                    \(                      # literal paren
+                        [ ]*
+                        ({1})               # href = $3
+                        [ ]*
+                        (                   # $4
+                        (['""])           # quote char = $5
+                        (.*?)               # title = $6
+                        \5                  # matching quote
+                        [ ]*                # ignore any spaces between closing quote and )
+                        )?                  # title is optional
+                    \)
+                )", GetNestedBracketsPattern(), GetNestedParensPattern()),
+                  RegexOptions.Singleline | RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
+
+        private static string _nestedBracketsPattern;
+
+        /// <summary>
+        /// Reusable pattern to match balanced [brackets]. See Friedl's 
+        /// "Mastering Regular Expressions", 2nd Ed., pp. 328-331.
+        /// </summary>
+        private static string GetNestedBracketsPattern()
+        {
+            // in other words [this] and [this[also]] and [this[also[too]]]
+            // up to _nestDepth
+            if (_nestedBracketsPattern == null)
+                _nestedBracketsPattern =
+                    RepeatString(@"
+                    (?>              # Atomic matching
+                       [^\[\]]+      # Anything other than brackets
+                     |
+                       \[
+                           ", _nestDepth) + RepeatString(
+                    @" \]
+                    )*"
+                    , _nestDepth);
+            return _nestedBracketsPattern;
+        }
+
+        private static string _nestedParensPattern;
+
+        /// <summary>
+        /// Reusable pattern to match balanced (parens). See Friedl's 
+        /// "Mastering Regular Expressions", 2nd Ed., pp. 328-331.
+        /// </summary>
+        private static string GetNestedParensPattern()
+        {
+            // in other words (this) and (this(also)) and (this(also(too)))
+            // up to _nestDepth
+            if (_nestedParensPattern == null)
+                _nestedParensPattern =
+                    RepeatString(@"
+                    (?>              # Atomic matching
+                       [^()\s]+      # Anything other than parens or whitespace
+                     |
+                       \(
+                           ", _nestDepth) + RepeatString(
+                    @" \)
+                    )*"
+                    , _nestDepth);
+            return _nestedParensPattern;
+        }
+
+        /// <summary>
+        /// this is to emulate what's evailable in PHP
+        /// </summary>
+        private static string RepeatString(string text, int count)
+        {
+            var sb = new StringBuilder(text.Length * count);
+            for (int i = 0; i < count; i++)
+                sb.Append(text);
+            return sb.ToString();
+        }
+        #endregion
     }
 
     internal class GitDocArgs
