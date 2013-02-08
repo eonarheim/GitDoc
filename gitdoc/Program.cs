@@ -36,7 +36,7 @@ namespace GitDoc
         private static void ConfigureTokens()
         {
             // {date}
-            _tokenReplacements.Add("{date}", DateTime.Now.ToString("d/M/yy 'at' H:mm tt"));
+            _tokenReplacements.Add("{date}", DateTime.Now.ToString("d/M/yy 'at' h:mm tt"));
             
             // {author}
             _tokenReplacements.Add("{author}", Environment.UserName);
