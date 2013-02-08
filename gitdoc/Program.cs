@@ -71,7 +71,7 @@ namespace GitDoc
             }
 
             // Process to output dir
-            var gitClient = new GitClient();
+            var gitClient = new GitClient(_options.ClientId, _options.ClientSecret);
 
             foreach (var file in files)
             {
@@ -285,5 +285,7 @@ software, even if advised of the possibility of such damage.
 
         public string OutputDir { get; set; }
         public string BaseDir { get; set; }
+        public string ClientId { get; set; }
+        public string ClientSecret { get; set; }
     }
 }
