@@ -36,7 +36,7 @@ namespace GitDoc
         private static void ConfigureTokens()
         {
             // {date}
-            _tokenReplacements.Add("{date}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
+            _tokenReplacements.Add("{date}", DateTime.Now.ToString("d/M/yy 'at' H:mm tt"));
             
             // {author}
             _tokenReplacements.Add("{author}", Environment.UserName);
@@ -79,28 +79,27 @@ namespace GitDoc
                 {
                     var rawText = File.ReadAllText(file);
 
-                    // Relative links
-                    MatchCollection links = _anchorInline.Matches(rawText);
-
-                    foreach (Match link in links)
-                    {
-                        var group = link.Groups[3]; // href
-                        var href = group.Value;
-                        Uri relativeUri;
-
-                        // Try and create a relative URI (so absolute will be ignored)
-                        if (Uri.TryCreate(href, UriKind.Relative, out relativeUri))
+                    rawText = _anchorInline.Replace(rawText, delegate(Match match)
                         {
-                            // See if the HREF is pointing to a Markdown file
-                            if (Path.GetExtension(relativeUri.ToString()) == ".md")
+                            var group = match.Groups[3]; // href
+                            var href = group.Value;
+                            Uri relativeUri;
+
+                            // Try and create a relative URI (so absolute will be ignored)
+                            if (Uri.TryCreate(href, UriKind.Relative, out relativeUri))
                             {
-                                // remove existing value
-                                rawText = rawText.Remove(group.Index, group.Length);
-                                // insert new value, change extension to HTML
-                                rawText = rawText.Insert(group.Index, Path.GetFileNameWithoutExtension(relativeUri.ToString()) + ".html");
+                                // See if the HREF is pointing to a Markdown file
+                                if (Path.GetExtension(relativeUri.ToString()) == ".md")
+                                {
+                                    var newPath = Path.GetFileNameWithoutExtension(relativeUri.ToString()) + ".html";
+
+                                    return String.Format("[{0}]({1})", match.Groups[2], newPath);
+                                }
                             }
+
+                            return match.ToString();
                         }
-                    }
+                    );
 
                     // Token replacement
                     foreach (var tr in _tokenReplacements)
@@ -111,8 +110,11 @@ namespace GitDoc
                     var contents = await gitClient.Markdown(rawText);
                     var subFolder = Path.GetDirectoryName(file.Replace(baseDir, "")) ?? "";
                     var outputName = Path.Combine(outputDir, subFolder, Path.GetFileNameWithoutExtension(file) + ".html");
+                    
+                    contents = template.Replace("{body}", contents);
 
-                    contents = template.Replace("{body}", contents);                    
+                    // TODO it would be nice to find the first instance of an <h1> and use its value here
+                    contents = contents.Replace("{title}", Path.GetFileNameWithoutExtension(file));
 
                     File.WriteAllText(outputName, contents);
 
